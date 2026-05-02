@@ -40,6 +40,14 @@ impl Matrix {
     }
 
     pub fn add(&self, other: &Matrix) -> Result<Matrix> {
+        let (r1, c1) = self.shape();
+        let (r2, c2) = other.shape();
+        if r1 != r2 || c1 != c2 {
+            return Err(MathError::DimensionMismatch {
+                expected: r1 * c1,
+                found: r2 * c2,
+            });
+        }
         Ok(Matrix {
             tensor: add(&self.tensor, &other.tensor),
         })

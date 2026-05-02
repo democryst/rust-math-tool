@@ -21,6 +21,7 @@ pub struct Node {
     pub value: RefCell<ArrayD<f64>>,
     pub grad: RefCell<ArrayD<f64>>,
     pub op: Op,
+    pub citation: String,
 }
 
 #[derive(Clone, Debug)]
@@ -29,19 +30,33 @@ pub struct Tensor(pub Rc<Node>);
 impl Tensor {
     pub fn new(value: ArrayD<f64>, op: Op) -> Self {
         let shape = value.shape().to_vec();
+        let citation = format!("{:?} operation on shape {:?}", op, shape);
         Self(Rc::new(Node {
             value: RefCell::new(value),
             grad: RefCell::new(ArrayD::zeros(IxDyn(&shape))),
             op,
+            citation,
         }))
     }
 
     pub fn variable(value: ArrayD<f64>) -> Self {
-        Self::new(value, Op::Constant)
+        let shape = value.shape().to_vec();
+        Self(Rc::new(Node {
+            value: RefCell::new(value),
+            grad: RefCell::new(ArrayD::zeros(IxDyn(&shape))),
+            op: Op::Constant,
+            citation: format!("Variable initialized with shape {:?}", shape),
+        }))
     }
 
     pub fn constant(value: ArrayD<f64>) -> Self {
-        Self::new(value, Op::Constant)
+        let shape = value.shape().to_vec();
+        Self(Rc::new(Node {
+            value: RefCell::new(value),
+            grad: RefCell::new(ArrayD::zeros(IxDyn(&shape))),
+            op: Op::Constant,
+            citation: format!("Constant initialized with shape {:?}", shape),
+        }))
     }
 
     pub fn backward(&self) {
@@ -55,6 +70,13 @@ impl Tensor {
         for node in topo.iter().rev() {
             node.propagate_step();
         }
+    }
+
+    pub fn verify(&self) -> bool {
+        use crate::core::integrity::IntegrityGate;
+        let val = self.0.value.borrow();
+        let claim = format!("Tensor result {:?} is correct", *val);
+        IntegrityGate::verify_claim(&claim, &self.0.citation)
     }
 
     fn build_topo(&self, visited: &mut HashSet<*const Node>, topo: &mut Vec<Tensor>) {
@@ -82,7 +104,7 @@ impl Tensor {
                 let mut ag = a.0.grad.borrow_mut();
                 if ag.shape() != g.shape() {
                     let summed = g.sum_axis(ndarray::Axis(0));
-                    let reshaped = summed.into_shape_with_order(ag.shape()).unwrap();
+                    let reshaped = summed.into_shape_with_order(ag.shape()).expect("Gradient shape mismatch during Add propagation");
                     *ag += &reshaped.into_dyn();
                 } else {
                     *ag += &g;
@@ -93,7 +115,7 @@ impl Tensor {
                     let mut bg = b.0.grad.borrow_mut();
                     if bg.shape() != g.shape() {
                         let summed = g.sum_axis(ndarray::Axis(0));
-                        let reshaped = summed.into_shape_with_order(bg.shape()).unwrap();
+                        let reshaped = summed.into_shape_with_order(bg.shape()).expect("Gradient shape mismatch during broadcast Add propagation");
                         *bg += &reshaped.into_dyn();
                     } else {
                         *bg += &g;
@@ -102,7 +124,7 @@ impl Tensor {
                     let mut ag = a.0.grad.borrow_mut();
                     if ag.shape() != g.shape() {
                         let summed = g.sum_axis(ndarray::Axis(0));
-                        let reshaped = summed.into_shape_with_order(ag.shape()).unwrap();
+                        let reshaped = summed.into_shape_with_order(ag.shape()).expect("Gradient shape mismatch during identity Add propagation");
                         *ag += &reshaped.into_dyn();
                     } else {
                         *ag += &g;
@@ -132,9 +154,9 @@ impl Tensor {
                 let (a_update, b_update) = {
                     let av = a.0.value.borrow();
                     let bv = b.0.value.borrow();
-                    let a2 = av.clone().into_dimensionality::<ndarray::Ix2>().unwrap();
-                    let b2 = bv.clone().into_dimensionality::<ndarray::Ix2>().unwrap();
-                    let g2 = g.clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+                    let a2 = av.clone().into_dimensionality::<ndarray::Ix2>().expect("MatMul requires 2D input A");
+                    let b2 = bv.clone().into_dimensionality::<ndarray::Ix2>().expect("MatMul requires 2D input B");
+                    let g2 = g.clone().into_dimensionality::<ndarray::Ix2>().expect("MatMul requires 2D gradient");
                     (g2.dot(&b2.t()).into_dyn(), a2.t().dot(&g2).into_dyn())
                 };
                 *a.0.grad.borrow_mut() += &a_update;
@@ -155,7 +177,7 @@ impl Tensor {
             }
             Op::Mean(a) => {
                 let n = a.0.value.borrow().len() as f64;
-                let g_val = *g.iter().next().unwrap();
+                let g_val = *g.iter().next().expect("Mean gradient cannot be empty");
                 let mut ag = a.0.grad.borrow_mut();
                 ag.mapv_inplace(|v| v + g_val / n);
             }
@@ -209,8 +231,8 @@ impl Mul<&Tensor> for &Tensor {
 
 // Helper functions
 pub fn matmul(a: &Tensor, b: &Tensor) -> Tensor {
-    let a_val = a.0.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().unwrap();
-    let b_val = b.0.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+    let a_val = a.0.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().expect("matmul: input A must be 2D");
+    let b_val = b.0.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().expect("matmul: input B must be 2D");
     Tensor::new(a_val.dot(&b_val).into_dyn(), Op::MatMul(a.clone(), b.clone()))
 }
 

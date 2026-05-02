@@ -30,7 +30,14 @@ fn main() {
         let loss = MSE::loss(&output, &targets);
         let loss_val = *loss.0.value.borrow().iter().next().unwrap();
         
-        // Backward
+        // Integrity Gate Verification (Phase 5)
+        if epoch % 500 == 0 {
+            if loss.verify() {
+                println!("Epoch {}: Integrity Gate [VERIFIED] loss {}", epoch, loss_val);
+            } else {
+                println!("Epoch {}: Integrity Gate [FAILED] verification for loss {}", epoch, loss_val);
+            }
+        }
         optimizer.zero_grad(&all_params);
         loss.backward();
         

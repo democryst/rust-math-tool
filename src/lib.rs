@@ -5,6 +5,7 @@ pub mod core {
     pub mod matrix;
     pub mod autodiff;
     pub mod ai;
+    pub mod integrity;
 }
 
 pub use crate::core::vector::{Vector, MathError};

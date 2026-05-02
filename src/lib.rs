@@ -1,3 +1,20 @@
+//! # rust-math-tool
+//!
+//! A high-performance, production-grade mathematical toolkit for AI in Rust.
+//!
+//! ## Modules
+//!
+//! - **[`core::autodiff`]**: Reverse-mode automatic differentiation via topological DAG.
+//! - **[`core::dual`]**: Forward-mode differentiation via Dual Numbers (`a + be`).
+//! - **[`core::hybrid`]**: Auto-selects autodiff mode by Jacobian dimensions.
+//! - **[`core::complex`]**: Complex-valued tensor arithmetic over C.
+//! - **[`core::signal`]**: `fft` / `ifft` via SIMD-accelerated `rustfft`.
+//! - **[`core::metrics`]**: KL-Divergence, Cosine Similarity, Wasserstein Distance.
+//! - **[`core::geometry`]**: Empirical Fisher Information Matrix.
+//! - **[`core::solver`]**: LP/QP interior-point constraint solvers.
+//! - **[`core::integrity`]**: Runtime IntegrityGate auditor.
+//! - **[`core::ai`]**: Neural network primitives (Linear, ReLU, MSE, SGD, Adam, L-BFGS).
+
 extern crate openblas_src;
 
 pub mod core {

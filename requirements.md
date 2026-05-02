@@ -1,85 +1,68 @@
-# Software Requirements Specification (SRS): Mathematical Framework for AI in Rust
+# Software Requirements Specification (SRS): Mathematical Framework for AI in Rust (Extended)
 
 ## 1. Project Overview
-This document outlines the technical requirements for implementing a mathematical foundation within a Rust-based environment. The goal is to provide developers and AI systems with a robust, type-safe, and high-performance toolkit for linear algebra, calculus, and statistical modeling.
+This document outlines the technical requirements for a high-performance mathematical toolkit in Rust. It focuses on providing "Zero Assumption" performance, type-safe tensor operations, and a hybrid differentiation engine for AI and physics-based simulations.
 
-## 2. Functional Requirements
+## 2. Expanded Functional Requirements
 
-### 2.1 Linear Algebra Module
-- **Vector & Matrix Operations:** Support for addition, subtraction, and multiplication (Dot product, Hadamard product).
-- **Decompositions:** Implementation of LU, QR, and SVD (Singular Value Decomposition).
-- **Hardware Acceleration:** Integration with BLAS (Basic Linear Algebra Subprograms) and LAPACK via Rust bindings.
-- **Tensor Support:** Multi-dimensional array support (n-dimensional) with efficient slicing and broadcasting.
+### 2.1 Linear Algebra & Complex Systems
+- **Core Tensors**: N-dimensional array support with efficient slicing, broadcasting, and lazy evaluation.
+- **Decompositions**: LU, QR, SVD, and Cholesky (with support for sparse matrices).
+- **Complex Analysis**: Support for complex-valued tensors (z=a+bi) and Wirtinger Calculus for non-holomorphic activation functions.
+- **Hardware Acceleration**: Native bindings for BLAS/LAPACK and wgpu for cross-platform GPU acceleration.
 
-### 2.2 Calculus & Automatic Differentiation
-- **Dual Numbers:** Implementation of forward-mode automatic differentiation using Dual Numbers.
-- **Computational Graphs:** Support for reverse-mode differentiation (backpropagation) for neural network training.
-- **Gradient Tracking:** Ability to enable/disable gradient calculations to optimize memory during inference.
+### 2.2 Dual Differentiation Engine
+- **Forward-Mode (Dual Numbers)**:
+  - Implementation of the Dual Space a+bϵ where ϵ²=0.
+  - Designed for high-precision Jacobians in low-parameter models.
+- **Reverse-Mode (Tape-Based)**:
+  - Wengert Tape implementation for building and traversing computational graphs.
+  - Support for "checkpointing" to trade computation for memory in deep graphs.
+- **Hybrid Switching**: Logic to automatically select differentiation mode based on the input/output ratio of the target function.
 
-### 2.3 Probability & Statistics
-- **Distributions:** Support for Normal, Bernoulli, Poisson, and Gamma distributions.
-- **Sampling:** Cryptographically secure and pseudo-random number generation (RNG).
-- **Descriptive Stats:** Functions for Mean, Variance, Standard Deviation, and Correlation.
+### 2.3 Information Geometry & Signal Analysis
+- **Manifold Learning**: Support for Fisher Information Matrices (FIM) and Riemannian metrics for natural gradient descent.
+- **Signal Processing**: High-performance Fast Fourier Transforms (FFT) and Wavelet transforms via SIMD-accelerated kernels.
+- **Distance Metrics**: KL-Divergence, Wasserstein Distance (Optimal Transport), and Cosine Similarity.
 
 ### 2.4 Numerical Optimization
-- **Gradient Descent:** Implementation of SGD (Stochastic Gradient Descent), Adam, and RMSprop.
-- **Constraint Solvers:** Support for Linear Programming (LP) and Quadratic Programming (QP).
+- **First-Order**: SGD, Adam, AdamW, and RMSprop with decoupled weight decay.
+- **Second-Order**: L-BFGS and Conjugate Gradient methods for high-precision convergence.
+- **Constraint Solvers**: Linear and Quadratic Programming (LP/QP) via interior-point methods.
 
 ## 3. Non-Functional Requirements
 
-### 3.1 Performance (Zero Assumption Policy)
-- **Target Hardware:** Primary support for `x86_64` (AVX2/AVX-512) and `aarch64` (NEON). No support for legacy non-SIMD architectures.
-- **Zero-Cost Abstractions:** High-level mathematical syntax must compile down to efficient machine code.
-- **Memory Safety:** 100% `safe` Rust for core logic; `unsafe` blocks allowed only in SIMD/BLAS wrappers with explicit audit trails.
-- **SIMD Support:** Auto-vectorization via `packed_simd` or `std::simd` where available.
+### 3.1 Performance & Safety
+- **SIMD First**: Mandatory auto-vectorization for x86_64 (AVX-512) and aarch64 (NEON).
+- **Memory Integrity**: No unsafe code allowed in higher-level abstractions; `unsafe` is strictly quarantined to hardware-level intrinsics.
+- **Numerical Stability**: Implementation of Kahan Summation and Stochastic Rounding to mitigate floating-point drift.
 
-### 3.2 Developer Experience & Governance
-- **Type Safety:** Use of Rust's `const generics` to enforce matrix dimensions at compile time.
-- **Constructive Dissent Gate:** Major architectural changes (e.g., switching from `ndarray` to `nalgebra`) require a **Blast Radius Analysis** document.
-- **Error Grounding:** Mathematical errors (NaN, Infinity, Singular Matrices) must be returned as `Result` types, never `panic!`.
-- **Reversibility:** Design APIs to be modular (R2) to allow easy swapping of backend computational engines.
+### 3.2 Developer Experience
+- **Compile-Time Verification**: Use of const generics to validate matrix dimensions, preventing runtime "Shape Mismatch" errors.
+- **Error Handling**: All mathematical singularities (division by zero, non-invertible matrices) must return a `MathError: Result` type.
 
-## 4. Technical Stack (The "Rust Tooling")
-
-| Component | Recommended Crate | Purpose |
+## 4. Technical Stack
+| Component | Tool/Crate | Purpose |
 | :--- | :--- | :--- |
-| **Linear Algebra** | `ndarray` / `nalgebra` | Core matrix and vector logic. |
-| **Deep Learning** | `burn` / `dfdx` | Neural network abstractions and autodiff. |
-| **GPU Computing** | `wgpu` / `cudarc` | Offloading math to the GPU. |
-| **Statistics** | `statrs` | Advanced statistical distributions. |
-| **Optimization** | `argmin` | Iterative optimization algorithms. |
+| Linear Algebra | `ndarray` / `nalgebra` | Core matrix and vector logic. |
+| Deep Learning | `burn` / `dfdx` | Computational graphs and autodiff. |
+| Complex Math | `num-complex` | Complex number types. |
+| FFT/Signals | `rustfft` | Signal processing kernels. |
+| Optimization | `argmin` | Iterative solver framework. |
+| GPU/SIMD | `wgpu` / `std::simd` | Hardware acceleration. |
 
 ## 5. Implementation Roadmap (Hardening Lifecycle)
+- **Phase 1: Foundation (R2)**: Establish `ndarray` environment and complex-number support.
+- **Phase 2: Hybrid Autodiff (R1)**: Implement Dual Numbers (Forward) and Tape-based (Reverse) engines.
+  - **Gate**: Cross-verify gradients against finite difference methods (10⁻⁷ tolerance).
+- **Phase 3: Manifolds & Signals (R1)**: Integrate FFT, KL-Divergence, and FIM calculations.
+- **Phase 4: Optimization & Constraints (R2)**: Build Adam/L-BFGS optimizers and LP/QP solvers.
+- **Phase 5: Integrity Gate (R0)**: Formal audit of unsafe blocks and final production hardening.
 
-1.  **Phase 1: Foundation (R2)**
-    - Set up `ndarray` environment.
-    - Establish basic vector/matrix math.
-    - **Gate:** 100% unit test coverage for kernel operations.
-2.  **Phase 2: Differentiation Engine (R1)**
-    - Implement forward and reverse-mode Automatic Differentiation.
-    - **Gate:** Property-based verification of gradients against finite difference methods.
-3.  **Phase 3: Performance Hardening (R1)**
-    - Integrate BLAS/LAPACK and SIMD intrinsics.
-    - **Gate:** Benchmarking against standard libraries with < 10% overhead.
-4.  **Phase 4: AI Primitives (R2)**
-    - Build Layers, Loss functions, and Optimizers.
-    - **Gate:** Training of a reference model (e.g., MNIST) to convergence.
-5.  **Phase 5: Integrity & Production (R0/R1)**
-    - Implement Integrity Gate interceptors.
-    - Full system audit for "Zero Assumption" compliance.
-    - Final production-grade hardening and release.
-
-## 6. Verification & Integrity (Evidence-Based Completion)
-
-### 6.1 Integrity Gate Integration
-- **Post-Inference Verification:** Every mathematical result used in AI inference must be accompanied by a **Grounding Citation** (e.g., source code reference or mathematical identity proof).
-- **Claim Interception:** The Integrity Gate will block any mathematical claims that cannot be verified against the local `Gemma-4` model's logical constraints.
-
-### 6.2 Testing & Quality Assurance
-- **Unit Testing:** 100% coverage for core arithmetic kernels.
-- **Property-Based Testing:** Use `proptest` to verify mathematical identities (e.g., `A * A^-1 = I`) across a wide range of inputs.
-- **Continuous Verification:** Every PR must include terminal output evidence of successful test execution (Rule 2: Evidence-Based Completion).
-- **Fuzzing:** Continuous fuzzing of input tensors to detect edge-case overflows or memory safety violations in `unsafe` SIMD blocks.
+## 6. Verification & Integrity
+- **Property-Based Testing**: Use `proptest` to verify mathematical identities (e.g., A⋅A⁻¹=I).
+- **Integrity Gate**: Mathematical claims must be verified against logical constraints before committing to the main branch.
+- **Fuzzing**: Continuous input fuzzing to detect edge-case overflows or NaN generation.
 
 ---
 > "The Rust logic gate is the law; the LLM is merely the worker." - CLAUDE.md

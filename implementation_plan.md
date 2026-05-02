@@ -1,32 +1,27 @@
-# Implementation Plan: Phase 1 - Foundation
+# Implementation Plan: Phase 2 - Differentiation Engine
 
-This plan covers the implementation of the core mathematical foundation for the Rust Math Tool.
+This phase implements Automatic Differentiation (AD) to support gradient calculations for AI models.
 
 ## 🤖 Workflow Alignment (CLAUDE.md)
 
-1.  **Zero Assumption Policy**: I will target `x86_64` (AVX2) and `aarch64` (NEON) as defined in the requirements. I will use `ndarray` as the primary engine.
-2.  **Evidence-Based Completion**: Completion will be verified by `cargo test` and code coverage analysis.
-3.  **Reversibility**: Initial project structure and dependency selection are R1. Core logic remains modular (R2).
+1.  **Zero Assumption Policy**: I will implement forward-mode AD using Dual Numbers. For reverse-mode AD, I will implement a simplified computational graph capable of handling basic scalar operations first.
+2.  **Evidence-Based Completion**: Gradients will be verified against numerical finite differences using `proptest`.
+3.  **Reversibility**: The AD engine architecture is R1 (Costly to Reverse) as it dictates how neural network layers will be built.
 
 ## Proposed Changes
 
-### [NEW] Cargo.toml
-- Initialize project and add `ndarray` dependency.
+### [NEW] src/core/autodiff.rs
+- `Dual` struct for forward-mode AD.
+- `Node` and `Graph` structs for reverse-mode AD.
 
-### [NEW] src/lib.rs
-- Export modules for vector and matrix operations.
-
-### [NEW] src/core/vector.rs
-- Basic vector operations (addition, subtraction, scaling).
-
-### [NEW] src/core/matrix.rs
-- Basic matrix operations (multiplication, dot product).
+### [MODIFY] src/lib.rs
+- Export the `autodiff` module.
 
 ## Verification Plan
 
 ### Automated Tests
-- `cargo test`: Run unit tests for all operations.
-- Property-based tests using `proptest` for mathematical identities.
+- `cargo test`: Unit tests for Dual number arithmetic.
+- Property-based tests: Verify that $f'(x)$ calculated via AD matches $(f(x+h) - f(x))/h$ within a small epsilon.
 
 ### Manual Verification
-- Review terminal output for successful test execution (Rule 2).
+- Review terminal output for gradient verification evidence.

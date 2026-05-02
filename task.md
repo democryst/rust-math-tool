@@ -1,6 +1,6 @@
-# Task List: Phase 2 Implementation
+# Task List: Phase 3 Implementation
 
-- [x] Implement Forward-Mode AD (Dual Numbers)
-- [x] Implement Reverse-Mode AD (Basic Computational Graph)
-- [x] Implement Property-Based Gradient Verification
-- [x] Verify against Finite Differences (Integrity Gate)
+- [x] Enable Hardware Acceleration (BLAS/LAPACK)
+- [x] Add Benchmarking Suite (`criterion`)
+- [x] Implement SIMD-Optimized Kernels
+- [x] Verify Performance Targets (Integrity Gate)

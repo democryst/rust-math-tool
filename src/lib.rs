@@ -1,3 +1,5 @@
+extern crate openblas_src;
+
 pub mod core {
     pub mod vector;
     pub mod matrix;

@@ -3,6 +3,14 @@ name = "rust-math-tool"
 version = "0.1.0"
 edition = "2024"
 
+[[bench]]
+name = "math_bench"
+harness = false
+
 [dependencies]
-ndarray = "0.17.2"
+ndarray = { version = "0.17.2", features = ["blas"] }
+openblas-src = { version = "0.10.15", features = ["static"] }
 proptest = "1.11.0"
+
+[dev-dependencies]
+criterion = "0.8.2"

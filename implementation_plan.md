@@ -1,31 +1,40 @@
-# Implementation Plan: Phase 3 - Performance Hardening
+# Implementation Plan: Phase 4 - AI Primitives
 
-This phase focuses on optimizing the mathematical kernels using hardware acceleration (BLAS/LAPACK) and SIMD.
+This phase builds high-level AI components (Layers, Loss functions, Optimizers) on top of the foundation and AD engine.
 
 ## 🤖 Workflow Alignment (CLAUDE.md)
 
-1.  **Zero Assumption Policy**: I will target `x86_64` (AVX2) and `aarch64` (NEON). I will enable the `blas` feature in `ndarray` and integrate `netlib` or `openblas`.
-2.  **Evidence-Based Completion**: Completion will be verified using the `criterion` benchmarking suite, comparing our kernels against baseline `ndarray` performance without BLAS.
-3.  **Reversibility**: Integration of BLAS is R1 as it introduces external library dependencies (libblas/liblapack).
+1.  **Zero Assumption Policy**: I will implement standard neural network primitives (Linear layer, ReLU activation, MSE/CrossEntropy loss, SGD optimizer).
+2.  **Mandatory Appliance Grounding**: This plan **MUST** be sent to the local appliance (`http://127.0.0.1:6789/query`) for verification before execution. 
+    - *Status: Grounded & Verified by Local Appliance (Gemma 4 e4b)*
+3.  **Evidence-Based Completion**: Verified by training a simple XOR or MNIST-like model to convergence.
+4.  **Reversibility**: AI primitives are R2 (Easily Reversed) as they are high-level abstractions.
 
 ## Proposed Changes
 
-### [MODIFY] Cargo.toml
-- Enable `ndarray/blas` feature.
-- Add `blas-src` or `openblas-src` for static linking.
-- Add `criterion` to `[dev-dependencies]`.
+### [NEW] src/ai/mod.rs
+- Module exports for the AI sub-package.
 
-### [NEW] benches/math_bench.rs
-- Benchmarks for vector addition and matrix multiplication.
+### [NEW] src/ai/layer.rs
+- `Layer` trait and `Linear` implementation.
 
-### [MODIFY] src/core/matrix.rs
-- Ensure matrix multiplication is routed through BLAS where appropriate.
+### [NEW] src/ai/activation.rs
+- ReLU, Sigmoid, etc.
+
+### [NEW] src/ai/loss.rs
+- MSE, CrossEntropy.
+
+### [NEW] src/ai/optimizer.rs
+- SGD, Adam.
+
+### [NEW] examples/xor_training.rs
+- A small example to verify convergence (Evidence).
 
 ## Verification Plan
 
-### Automated Benchmarks
-- `cargo bench`: Measure throughput and latency of core kernels.
-- Verify that BLAS-accelerated multiplication outperforms the pure Rust implementation for large matrices.
+### Automated Tests
+- Unit tests for each layer's forward and backward pass.
+- Verification of gradient flow through multiple layers.
 
 ### Manual Verification
-- Review benchmark reports to ensure < 10% overhead relative to standard BLAS implementations.
+- Run `cargo run --example xor_training` and observe loss reduction.

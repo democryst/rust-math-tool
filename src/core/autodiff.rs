@@ -78,12 +78,14 @@ use std::rc::Rc;
 pub enum Op {
     Constant(f64),
     Add(Rc<Node>, Rc<Node>),
+    Sub(Rc<Node>, Rc<Node>),
     Mul(Rc<Node>, Rc<Node>),
+    ReLU(Rc<Node>),
 }
 
 #[derive(Debug)]
 pub struct Node {
-    pub value: f64,
+    pub value: RefCell<f64>,
     pub grad: RefCell<f64>,
     pub op: Op,
 }
@@ -91,7 +93,7 @@ pub struct Node {
 impl Node {
     pub fn constant(v: f64) -> Rc<Self> {
         Rc::new(Self {
-            value: v,
+            value: RefCell::new(v),
             grad: RefCell::new(0.0),
             op: Op::Constant(v),
         })
@@ -99,7 +101,7 @@ impl Node {
 
     pub fn variable(v: f64) -> Rc<Self> {
         Rc::new(Self {
-            value: v,
+            value: RefCell::new(v),
             grad: RefCell::new(0.0),
             op: Op::Constant(v),
         })
@@ -119,11 +121,23 @@ impl Node {
                 a.propagate();
                 b.propagate();
             }
-            Op::Mul(a, b) => {
-                *a.grad.borrow_mut() += g * b.value;
-                *b.grad.borrow_mut() += g * a.value;
+            Op::Sub(a, b) => {
+                *a.grad.borrow_mut() += g;
+                *b.grad.borrow_mut() -= g;
                 a.propagate();
                 b.propagate();
+            }
+            Op::Mul(a, b) => {
+                *a.grad.borrow_mut() += g * *b.value.borrow();
+                *b.grad.borrow_mut() += g * *a.value.borrow();
+                a.propagate();
+                b.propagate();
+            }
+            Op::ReLU(a) => {
+                if *a.value.borrow() > 0.0 {
+                    *a.grad.borrow_mut() += g;
+                }
+                a.propagate();
             }
             Op::Constant(_) => {}
         }
@@ -132,17 +146,34 @@ impl Node {
 
 pub fn add(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
     Rc::new(Node {
-        value: a.value + b.value,
+        value: RefCell::new(*a.value.borrow() + *b.value.borrow()),
         grad: RefCell::new(0.0),
         op: Op::Add(a.clone(), b.clone()),
     })
 }
 
+pub fn sub(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
+    Rc::new(Node {
+        value: RefCell::new(*a.value.borrow() - *b.value.borrow()),
+        grad: RefCell::new(0.0),
+        op: Op::Sub(a.clone(), b.clone()),
+    })
+}
+
 pub fn mul(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
     Rc::new(Node {
-        value: a.value * b.value,
+        value: RefCell::new(*a.value.borrow() * *b.value.borrow()),
         grad: RefCell::new(0.0),
         op: Op::Mul(a.clone(), b.clone()),
+    })
+}
+
+pub fn relu(a: &Rc<Node>) -> Rc<Node> {
+    let v = *a.value.borrow();
+    Rc::new(Node {
+        value: RefCell::new(if v > 0.0 { v } else { 0.0 }),
+        grad: RefCell::new(0.0),
+        op: Op::ReLU(a.clone()),
     })
 }
 
@@ -194,7 +225,7 @@ mod tests {
         
         f.backward();
         
-        assert_eq!(f.value, 8.0);
+        assert_eq!(*f.value.borrow(), 8.0);
         assert_eq!(*x.grad.borrow(), 4.0);
         assert_eq!(*y.grad.borrow(), 2.0);
     }

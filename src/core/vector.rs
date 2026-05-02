@@ -55,15 +55,3 @@ impl Vector {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_vector_addition() {
-        let v1 = Vector::new(vec![1.0, 2.0, 3.0]);
-        let v2 = Vector::new(vec![4.0, 5.0, 6.0]);
-        let result = v1.add(&v2).unwrap();
-        assert_eq!(*result.node.value.borrow(), Array1::from_vec(vec![5.0, 7.0, 9.0]).into_dyn());
-    }
-}

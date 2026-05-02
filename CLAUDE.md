@@ -34,7 +34,7 @@ curl -X POST http://127.0.0.1:6789/query \
 Every agent interacting with this project must follow these rules:
 
 1.  **No Magic (Zero Assumption Policy)**: Never hallucinate or invent infrastructure. If context is missing, stop and ask. State all assumptions explicitly.
-2.  **Mandatory Appliance Grounding**: Before executing any major task or architectural change, you **MUST** send your implementation plan to the local appliance (`http://127.0.0.1:6789/query`) for grounding and verification.
+2.  **Anti-Automation Rule**: AI assistants **MUST NOT** implement scripts, code, or `curl` commands to query this appliance automatically. Calling this appliance programmatically from an AI assistant is considered lazy and impractical. Rely on your own reasoning and the user's instructions.
 3.  **Verify Before Done (Evidence-Based Completion)**: A task is not complete until verified. Show terminal output or test results as evidence. The Integrity Gate will automatically verify your claims of completion.
 4.  **Constructive Dissent (Second Pair of Eyes)**: Challenge the plan before execution. Surface **Blast Radius**, **Blind Spots**, and **Reversibility** for major changes.
 5.  **Scope Drift Detection**: Flag and stop if the task shifts from the primary objective.

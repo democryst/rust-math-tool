@@ -76,3 +76,39 @@ fn test_dimension_mismatch_errors() {
     let m2 = Matrix::new(3, 1, vec![1.0, 2.0, 3.0]).unwrap();
     assert!(m1.multiply(&m2).is_err());
 }
+
+use rust_math_tool::ComplexTensor;
+use num_complex::Complex64;
+use ndarray::array;
+
+#[test]
+fn test_complex_tensor_addition() {
+    let c1 = ComplexTensor::variable(array![Complex64::new(1.0, 2.0)].into_dyn());
+    let c2 = ComplexTensor::variable(array![Complex64::new(3.0, 4.0)].into_dyn());
+    
+    let result = &c1 + &c2;
+    assert_eq!(*result.0.value.borrow(), array![Complex64::new(4.0, 6.0)].into_dyn());
+}
+
+#[test]
+fn test_complex_tensor_multiplication() {
+    // (1 + 2i) * (3 + 4i) = 3 + 4i + 6i - 8 = -5 + 10i
+    let c1 = ComplexTensor::variable(array![Complex64::new(1.0, 2.0)].into_dyn());
+    let c2 = ComplexTensor::variable(array![Complex64::new(3.0, 4.0)].into_dyn());
+    
+    let result = &c1 * &c2;
+    assert_eq!(*result.0.value.borrow(), array![Complex64::new(-5.0, 10.0)].into_dyn());
+}
+
+proptest! {
+    #[test]
+    fn test_complex_addition_is_commutative(a_re in any::<f64>(), a_im in any::<f64>(), b_re in any::<f64>(), b_im in any::<f64>()) {
+        let c1 = ComplexTensor::variable(array![Complex64::new(a_re, a_im)].into_dyn());
+        let c2 = ComplexTensor::variable(array![Complex64::new(b_re, b_im)].into_dyn());
+        
+        let res1 = &c1 + &c2;
+        let res2 = &c2 + &c1;
+        
+        assert_eq!(*res1.0.value.borrow(), *res2.0.value.borrow());
+    }
+}

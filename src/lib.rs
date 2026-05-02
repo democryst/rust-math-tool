@@ -9,5 +9,5 @@ pub mod core {
 
 pub use crate::core::vector::{Vector, MathError};
 pub use crate::core::matrix::Matrix;
-pub use crate::core::autodiff::{Node, add, sub, mul, matmul, relu, square, mean};
+pub use crate::core::autodiff::{Tensor, add, sub, mul, matmul, relu, square, mean};
 pub use crate::core::ai::{Layer, Linear, ReLU, MSE, SGD};

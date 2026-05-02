@@ -1,16 +1,13 @@
-use rust_math_tool::core::autodiff::Node;
-use rust_math_tool::{Linear, ReLU, MSE, SGD, Layer};
-use std::rc::Rc;
+use rust_math_tool::{Tensor, Linear, ReLU, MSE, SGD, Layer};
 use ndarray::array;
 
 fn main() {
     // 1. Setup Data (Tensors)
-    // XOR inputs as (4, 2) tensor
     let inputs_val = array![[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]].into_dyn();
     let targets_val = array![[0.0], [1.0], [1.0], [0.0]].into_dyn();
     
-    let inputs = Node::constant(inputs_val);
-    let targets = Node::constant(targets_val);
+    let inputs = Tensor::constant(inputs_val);
+    let targets = Tensor::constant(targets_val);
 
     // 2. Setup Model
     let l1 = Linear::new(2, 4);
@@ -18,7 +15,7 @@ fn main() {
     let l2 = Linear::new(4, 1);
     
     let optimizer = SGD::new(0.5);
-    let all_params: Vec<Rc<Node>> = [l1.parameters(), l2.parameters()].concat();
+    let all_params: Vec<Tensor> = [l1.parameters(), l2.parameters()].concat();
 
     println!("Starting Tensor-Based XOR training...");
 
@@ -31,7 +28,7 @@ fn main() {
         
         // Loss
         let loss = MSE::loss(&output, &targets);
-        let loss_val = *loss.value.borrow().iter().next().unwrap();
+        let loss_val = *loss.0.value.borrow().iter().next().unwrap();
         
         // Backward
         optimizer.zero_grad(&all_params);
@@ -50,5 +47,5 @@ fn main() {
     let h1_act = relu.forward(h1);
     let output = l2.forward(h1_act);
     println!("Training complete. Final Predictions:");
-    println!("{:?}", *output.value.borrow());
+    println!("{:?}", *output.0.value.borrow());
 }

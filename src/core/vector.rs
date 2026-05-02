@@ -1,5 +1,4 @@
-use crate::core::autodiff::{Node, add, sub};
-use std::rc::Rc;
+use crate::core::autodiff::{Tensor, add, sub};
 use ndarray::Array1;
 
 #[derive(Debug, PartialEq)]
@@ -9,21 +8,21 @@ pub enum MathError {
 
 pub type Result<T> = std::result::Result<T, MathError>;
 
-/// Vector operations wrapper around Rc<Node>
+/// Vector operations wrapper around Tensor
 pub struct Vector {
-    pub node: Rc<Node>,
+    pub tensor: Tensor,
 }
 
 impl Vector {
     pub fn new(data: Vec<f64>) -> Self {
         let array = Array1::from_vec(data).into_dyn();
         Self {
-            node: Node::variable(array),
+            tensor: Tensor::variable(array),
         }
     }
 
     pub fn dim(&self) -> usize {
-        self.node.value.borrow().len()
+        self.tensor.0.value.borrow().len()
     }
 
     pub fn add(&self, other: &Vector) -> Result<Vector> {
@@ -34,7 +33,7 @@ impl Vector {
             });
         }
         Ok(Vector {
-            node: add(&self.node, &other.node),
+            tensor: add(&self.tensor, &other.tensor),
         })
     }
 
@@ -46,12 +45,11 @@ impl Vector {
             });
         }
         Ok(Vector {
-            node: sub(&self.node, &other.node),
+            tensor: sub(&self.tensor, &other.tensor),
         })
     }
 
     pub fn backward(&self) {
-        self.node.backward();
+        self.tensor.backward();
     }
 }
-

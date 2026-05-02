@@ -1,32 +1,23 @@
-# Reimplementation Plan: Phases 1-4 (Tensor-Based AI Framework)
+# Refactor Plan: Autodiff Engine Optimization
 
-This plan outlines a full reimplementation of the `rust-math-tool` to transition from scalar-based logic to a production-grade **Tensor-Based Automatic Differentiation** framework.
+This plan refactors the `autodiff` engine to improve stability, performance, and developer experience.
 
 ## 🤖 Workflow Alignment (CLAUDE.md)
 
-1.  **Zero Assumption Policy**: I will target `ndarray` as the primary tensor engine. I assume `x86_64` (AVX2) and `aarch64` (NEON) targets.
+1.  **Zero Assumption Policy**: I am assuming the graph is a Directed Acyclic Graph (DAG).
 2.  **Mandatory Appliance Grounding**: This plan **MUST** be sent to the local appliance (`http://127.0.0.1:6789/query`) for verification before execution.
-3.  **Constructive Dissent**: A full reimplementation is **R1 (Costly to Reverse)**. I am justifying this change to support real-world AI models (like MNIST) which are impractical with scalar-only AD.
-4.  **Evidence-Based Completion**: Verified by passing all previous tests and achieving convergence on the XOR example with significantly better performance.
+3.  **Constructive Dissent**: Replacing recursive propagation with topological sort is **R2 (Easily Reversed)** but significantly improves stability (prevents stack overflow).
+4.  **Evidence-Based Completion**: Verified by passing all existing integration tests.
 
 ## Proposed Changes
 
 ### [MODIFY] src/core/autodiff.rs
-- Replace scalar `Node` with `TensorNode` using `ndarray::ArrayD<f64>`.
-- Implement tensor-based forward and backward passes.
-
-### [MODIFY] src/core/ai/
-- Update `Linear`, `ReLU`, `MSE`, and `SGD` to work with tensors instead of scalar slices.
-- Optimize weight updates using vectorized operations.
-
-### [MODIFY] examples/xor_training.rs
-- Refactor to use the new Tensor API.
+- Implement topological sort for non-recursive backpropagation.
+- Implement operator overloading (`Add`, `Sub`, `Mul`) for `Rc<Node>`.
+- Refactor `Op` logic to be more modular.
 
 ## Verification Plan
 
 ### Automated Tests
-- Port existing unit tests to the tensor API.
-- Add new tests for tensor shape validation.
-
-### Manual Verification
-- Run benchmarks to compare scalar vs tensor performance.
+- Run `cargo test` and verify `tests/autodiff_tests.rs` passes.
+- Run `examples/xor_training.rs` to verify training still works with the new API.

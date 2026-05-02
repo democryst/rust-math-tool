@@ -1,26 +1,25 @@
-use crate::core::autodiff::{Node, matmul, add, sub};
-use std::rc::Rc;
+use crate::core::autodiff::{Tensor, matmul, add};
 use ndarray::Array2;
 use crate::core::vector::{MathError, Result};
 
-/// Matrix operations wrapper around Rc<Node>
+/// Matrix operations wrapper around Tensor
 pub struct Matrix {
-    pub node: Rc<Node>,
+    pub tensor: Tensor,
 }
 
 impl Matrix {
     pub fn new(rows: usize, cols: usize, data: Vec<f64>) -> Result<Self> {
         let array = Array2::from_shape_vec((rows, cols), data)
-            .map_err(|_| MathError::DimensionMismatch { expected: rows * cols, found: 0 })? // Simplified error
+            .map_err(|_| MathError::DimensionMismatch { expected: rows * cols, found: 0 })?
             .into_dyn();
         
         Ok(Self {
-            node: Node::variable(array),
+            tensor: Tensor::variable(array),
         } )
     }
 
     pub fn shape(&self) -> (usize, usize) {
-        let shape = self.node.value.borrow().shape().to_vec();
+        let shape = self.tensor.0.value.borrow().shape().to_vec();
         (shape[0], shape[1])
     }
 
@@ -36,14 +35,13 @@ impl Matrix {
         }
         
         Ok(Matrix {
-            node: matmul(&self.node, &other.node),
+            tensor: matmul(&self.tensor, &other.tensor),
         })
     }
 
     pub fn add(&self, other: &Matrix) -> Result<Matrix> {
         Ok(Matrix {
-            node: add(&self.node, &other.node),
+            tensor: add(&self.tensor, &other.tensor),
         })
     }
 }
-

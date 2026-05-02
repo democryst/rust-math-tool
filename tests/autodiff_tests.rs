@@ -66,3 +66,55 @@ fn test_verification_gate_hybrid_autodiff() {
     // Ensure exact match between Forward and Reverse (analytically exact)
     assert_eq!(fwd_grad, rev_grad);
 }
+
+use rust_math_tool::{Adam, LBFGS, solve_lp, solve_qp};
+
+#[test]
+fn test_adam_converges_on_quadratic() {
+    // Minimize f(x) = x^2.  Optimal at x = 0.
+    // Start at x = 5.0; after enough steps, x should approach 0.
+    let param = Tensor::variable(array![5.0].into_dyn());
+    let mut adam = Adam::new(0.1);
+
+    for _ in 0..500 {
+        adam.zero_grad(&[param.clone()]);
+        // f = x^2, grad = 2x
+        let f = &param * &param;
+        f.backward();
+        adam.step(&[param.clone()]);
+    }
+
+    let x_final = param.0.value.borrow()[0];
+    assert!(x_final.abs() < 0.01, "Adam failed to converge: x = {}", x_final);
+}
+
+#[test]
+fn test_solve_lp_simple() {
+    // Minimize: -x1 - x2  (i.e., maximize x1 + x2)
+    // Subject to: x1 + x2 <= 1,  x1 >= 0,  x2 >= 0
+    // Optimal: x1 = 0.5, x2 = 0.5 (or any split summing to 1)
+    let c = vec![-1.0, -1.0];
+    let a = vec![vec![1.0, 1.0]];
+    let b = vec![1.0];
+
+    let x = solve_lp(&c, &a, &b, 2000, 1e-6).unwrap();
+    let sum = x[0] + x[1];
+    assert!(sum > 0.8, "LP solution too small: sum = {}", sum);
+    assert!(sum <= 1.01, "LP violated constraint: sum = {}", sum);
+}
+
+#[test]
+fn test_solve_qp_simple() {
+    // Minimize: 0.5 * (x1^2 + x2^2)  (Q = I, c = 0)
+    // Subject to: x1 + x2 >= 1 -> -(x1 + x2) <= -1
+    // Optimal: x1 = x2 = 0.5
+    let q = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+    let c = vec![0.0, 0.0];
+    let a = vec![vec![-1.0, -1.0]];
+    let b = vec![-1.0];
+
+    let x = solve_qp(&q, &c, &a, &b, 5000, 1e-6).unwrap();
+    let sum = x[0] + x[1];
+    assert!(sum >= 0.95, "QP constraint violated: sum = {}", sum);
+    assert!((x[0] - x[1]).abs() < 0.1, "QP not symmetric: x = {:?}", x);
+}

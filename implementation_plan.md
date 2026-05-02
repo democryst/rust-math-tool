@@ -1,40 +1,32 @@
-# Implementation Plan: Phase 4 - AI Primitives
+# Reimplementation Plan: Phases 1-4 (Tensor-Based AI Framework)
 
-This phase builds high-level AI components (Layers, Loss functions, Optimizers) on top of the foundation and AD engine.
+This plan outlines a full reimplementation of the `rust-math-tool` to transition from scalar-based logic to a production-grade **Tensor-Based Automatic Differentiation** framework.
 
 ## 🤖 Workflow Alignment (CLAUDE.md)
 
-1.  **Zero Assumption Policy**: I will implement standard neural network primitives (Linear layer, ReLU activation, MSE/CrossEntropy loss, SGD optimizer).
-2.  **Mandatory Appliance Grounding**: This plan **MUST** be sent to the local appliance (`http://127.0.0.1:6789/query`) for verification before execution. 
-    - *Status: Grounded & Verified by Local Appliance (Gemma 4 e4b)*
-3.  **Evidence-Based Completion**: Verified by training a simple XOR or MNIST-like model to convergence.
-4.  **Reversibility**: AI primitives are R2 (Easily Reversed) as they are high-level abstractions.
+1.  **Zero Assumption Policy**: I will target `ndarray` as the primary tensor engine. I assume `x86_64` (AVX2) and `aarch64` (NEON) targets.
+2.  **Mandatory Appliance Grounding**: This plan **MUST** be sent to the local appliance (`http://127.0.0.1:6789/query`) for verification before execution.
+3.  **Constructive Dissent**: A full reimplementation is **R1 (Costly to Reverse)**. I am justifying this change to support real-world AI models (like MNIST) which are impractical with scalar-only AD.
+4.  **Evidence-Based Completion**: Verified by passing all previous tests and achieving convergence on the XOR example with significantly better performance.
 
 ## Proposed Changes
 
-### [NEW] src/ai/mod.rs
-- Module exports for the AI sub-package.
+### [MODIFY] src/core/autodiff.rs
+- Replace scalar `Node` with `TensorNode` using `ndarray::ArrayD<f64>`.
+- Implement tensor-based forward and backward passes.
 
-### [NEW] src/ai/layer.rs
-- `Layer` trait and `Linear` implementation.
+### [MODIFY] src/core/ai/
+- Update `Linear`, `ReLU`, `MSE`, and `SGD` to work with tensors instead of scalar slices.
+- Optimize weight updates using vectorized operations.
 
-### [NEW] src/ai/activation.rs
-- ReLU, Sigmoid, etc.
-
-### [NEW] src/ai/loss.rs
-- MSE, CrossEntropy.
-
-### [NEW] src/ai/optimizer.rs
-- SGD, Adam.
-
-### [NEW] examples/xor_training.rs
-- A small example to verify convergence (Evidence).
+### [MODIFY] examples/xor_training.rs
+- Refactor to use the new Tensor API.
 
 ## Verification Plan
 
 ### Automated Tests
-- Unit tests for each layer's forward and backward pass.
-- Verification of gradient flow through multiple layers.
+- Port existing unit tests to the tensor API.
+- Add new tests for tensor shape validation.
 
 ### Manual Verification
-- Run `cargo run --example xor_training` and observe loss reduction.
+- Run benchmarks to compare scalar vs tensor performance.

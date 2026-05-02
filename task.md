@@ -1,9 +1,7 @@
-# Task List: Phase 4 Implementation
+# Task List: Phases 1-4 Reimplementation (Tensor-Based)
 
-- [x] Submit Plan for Appliance Grounding (Rule 2)
-- [x] Implement AI Layer Primitives (Linear)
-- [x] Implement Activations (ReLU, Sigmoid)
-- [x] Implement Loss Functions (MSE)
-- [x] Implement Optimizer (SGD)
-- [x] Create XOR Training Example
-- [x] Verify Convergence (Integrity Gate)
+- [x] Ground Reimplementation Plan with Appliance (Rule 2)
+- [/] Reimplement Tensor-Based Autodiff (`src/core/autodiff.rs`)
+- [ ] Update AI Primitives to Tensor API (`src/core/ai/`)
+- [ ] Refactor XOR Example
+- [ ] Verify Performance & Convergence (Integrity Gate)

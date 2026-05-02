@@ -13,14 +13,15 @@ impl SGD {
     pub fn step(&self, parameters: &[Rc<Node>]) {
         for param in parameters {
             let mut val = param.value.borrow_mut();
-            let grad = *param.grad.borrow();
-            *val -= self.learning_rate * grad;
+            let grad = param.grad.borrow();
+            *val -= &(&*grad * self.learning_rate);
         }
     }
 
     pub fn zero_grad(&self, parameters: &[Rc<Node>]) {
         for param in parameters {
-            *param.grad.borrow_mut() = 0.0;
+            let shape = param.grad.borrow().shape().to_vec();
+            *param.grad.borrow_mut() = ndarray::ArrayD::zeros(ndarray::IxDyn(&shape));
         }
     }
 }

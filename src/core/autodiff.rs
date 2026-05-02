@@ -1,232 +1,203 @@
-use std::ops::{Add, Sub, Mul, Div};
-
-/// Dual Number for Forward-Mode Automatic Differentiation
-/// Represents a value and its derivative: v + v'ε
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Dual {
-    pub value: f64,
-    pub grad: f64,
-}
-
-impl Dual {
-    pub fn new(value: f64, grad: f64) -> Self {
-        Self { value, grad }
-    }
-
-    pub fn constant(value: f64) -> Self {
-        Self { value, grad: 0.0 }
-    }
-
-    pub fn variable(value: f64) -> Self {
-        Self { value, grad: 1.0 }
-    }
-
-    pub fn powi(&self, n: i32) -> Self {
-        Self {
-            value: self.value.powi(n),
-            grad: self.grad * (n as f64) * self.value.powi(n - 1),
-        }
-    }
-}
-
-impl Add for Dual {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self {
-            value: self.value + other.value,
-            grad: self.grad + other.grad,
-        }
-    }
-}
-
-impl Sub for Dual {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self {
-            value: self.value - other.value,
-            grad: self.grad - other.grad,
-        }
-    }
-}
-
-impl Mul for Dual {
-    type Output = Self;
-    fn mul(self, other: Self) -> Self {
-        Self {
-            value: self.value * other.value,
-            grad: self.grad * other.value + self.value * other.grad,
-        }
-    }
-}
-
-impl Div for Dual {
-    type Output = Self;
-    fn div(self, other: Self) -> Self {
-        let denom = other.value * other.value;
-        Self {
-            value: self.value / other.value,
-            grad: (self.grad * other.value - self.value * other.grad) / denom,
-        }
-    }
-}
-
-/// Simplified Reverse-Mode AD for scalars
+use ndarray::{ArrayD, IxDyn};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::ops::{Add, Sub, Mul};
 
 #[derive(Clone, Debug)]
 pub enum Op {
-    Constant(f64),
+    Constant,
     Add(Rc<Node>, Rc<Node>),
     Sub(Rc<Node>, Rc<Node>),
-    Mul(Rc<Node>, Rc<Node>),
+    Mul(Rc<Node>, Rc<Node>), // Element-wise or MatMul? Let's implement MatMul separately
+    MatMul(Rc<Node>, Rc<Node>),
     ReLU(Rc<Node>),
+    Square(Rc<Node>),
+    Mean(Rc<Node>),
 }
 
 #[derive(Debug)]
 pub struct Node {
-    pub value: RefCell<f64>,
-    pub grad: RefCell<f64>,
+    pub value: RefCell<ArrayD<f64>>,
+    pub grad: RefCell<ArrayD<f64>>,
     pub op: Op,
 }
 
 impl Node {
-    pub fn constant(v: f64) -> Rc<Self> {
+    pub fn new(value: ArrayD<f64>, op: Op) -> Rc<Self> {
+        let shape = value.shape().to_vec();
         Rc::new(Self {
-            value: RefCell::new(v),
-            grad: RefCell::new(0.0),
-            op: Op::Constant(v),
+            value: RefCell::new(value),
+            grad: RefCell::new(ArrayD::zeros(IxDyn(&shape))),
+            op,
         })
     }
 
-    pub fn variable(v: f64) -> Rc<Self> {
-        Rc::new(Self {
-            value: RefCell::new(v),
-            grad: RefCell::new(0.0),
-            op: Op::Constant(v),
-        })
+    pub fn variable(value: ArrayD<f64>) -> Rc<Self> {
+        Self::new(value, Op::Constant)
+    }
+
+    pub fn constant(value: ArrayD<f64>) -> Rc<Self> {
+        Self::new(value, Op::Constant)
     }
 
     pub fn backward(self: &Rc<Self>) {
-        *self.grad.borrow_mut() = 1.0;
+        let shape = self.grad.borrow().shape().to_vec();
+        *self.grad.borrow_mut() = ArrayD::ones(IxDyn(&shape));
         self.propagate();
     }
 
     fn propagate(self: &Rc<Self>) {
-        let g = *self.grad.borrow();
+        let g = self.grad.borrow().clone();
         match &self.op {
             Op::Add(a, b) => {
-                *a.grad.borrow_mut() += g;
-                *b.grad.borrow_mut() += g;
+                let mut ag = a.grad.borrow_mut();
+                
+                if ag.shape() != g.shape() {
+                    let summed = g.sum_axis(ndarray::Axis(0));
+                    let reshaped = summed.into_shape_with_order(ag.shape()).unwrap();
+                    *ag += &reshaped.into_dyn();
+                } else {
+                    *ag += &g;
+                }
+                drop(ag);
+
+                if !Rc::ptr_eq(a, b) {
+                    let mut bg = b.grad.borrow_mut();
+                    if bg.shape() != g.shape() {
+                        let summed = g.sum_axis(ndarray::Axis(0));
+                        let reshaped = summed.into_shape_with_order(bg.shape()).unwrap();
+                        *bg += &reshaped.into_dyn();
+                    } else {
+                        *bg += &g;
+                    }
+                    drop(bg);
+                } else {
+                    // If a == b, gradient is doubled
+                    let mut ag = a.grad.borrow_mut();
+                    if ag.shape() != g.shape() {
+                        let summed = g.sum_axis(ndarray::Axis(0));
+                        let reshaped = summed.into_shape_with_order(ag.shape()).unwrap();
+                        *ag += &reshaped.into_dyn();
+                    } else {
+                        *ag += &g;
+                    }
+                }
+                
                 a.propagate();
-                b.propagate();
+                if !Rc::ptr_eq(a, b) {
+                    b.propagate();
+                }
             }
             Op::Sub(a, b) => {
-                *a.grad.borrow_mut() += g;
-                *b.grad.borrow_mut() -= g;
+                *a.grad.borrow_mut() += &g;
+                if !Rc::ptr_eq(a, b) {
+                    *b.grad.borrow_mut() -= &g;
+                } else {
+                    // x - x = 0, grad is 0, so no update needed if pointers match
+                }
                 a.propagate();
-                b.propagate();
+                if !Rc::ptr_eq(a, b) {
+                    b.propagate();
+                }
             }
             Op::Mul(a, b) => {
-                *a.grad.borrow_mut() += g * *b.value.borrow();
-                *b.grad.borrow_mut() += g * *a.value.borrow();
+                let (a_grad_update, b_grad_update) = {
+                    let a_val = a.value.borrow();
+                    let b_val = b.value.borrow();
+                    (&g * &*b_val, &g * &*a_val)
+                };
+                *a.grad.borrow_mut() += &a_grad_update;
+                if !Rc::ptr_eq(a, b) {
+                    *b.grad.borrow_mut() += &b_grad_update;
+                } else {
+                    *a.grad.borrow_mut() += &b_grad_update;
+                }
                 a.propagate();
-                b.propagate();
+                if !Rc::ptr_eq(a, b) {
+                    b.propagate();
+                }
+            }
+            Op::MatMul(a, b) => {
+                let (a_grad_update, b_grad_update) = {
+                    let a_val = a.value.borrow();
+                    let b_val = b.value.borrow();
+                    let a2 = a_val.clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+                    let b2 = b_val.clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+                    let g2 = g.clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+                    
+                    (g2.dot(&b2.t()).into_dyn(), a2.t().dot(&g2).into_dyn())
+                };
+                
+                *a.grad.borrow_mut() += &a_grad_update;
+                *b.grad.borrow_mut() += &b_grad_update;
+                
+                a.propagate();
+                if !Rc::ptr_eq(a, b) {
+                    b.propagate();
+                }
             }
             Op::ReLU(a) => {
-                if *a.value.borrow() > 0.0 {
-                    *a.grad.borrow_mut() += g;
+                {
+                    let a_val = a.value.borrow();
+                    let mut a_grad = a.grad.borrow_mut();
+                    for (ag, (av, gv)) in a_grad.iter_mut().zip(a_val.iter().zip(g.iter())) {
+                        if *av > 0.0 {
+                            *ag += gv;
+                        }
+                    }
                 }
                 a.propagate();
             }
-            Op::Constant(_) => {}
+            Op::Square(a) => {
+                {
+                    let a_val = a.value.borrow();
+                    *a.grad.borrow_mut() += &(&g * &*a_val * 2.0);
+                }
+                a.propagate();
+            }
+            Op::Mean(a) => {
+                {
+                    let n = a.value.borrow().len() as f64;
+                    let g_val = *g.iter().next().unwrap();
+                    let mut a_grad = a.grad.borrow_mut();
+                    a_grad.mapv_inplace(|v| v + g_val / n);
+                }
+                a.propagate();
+            }
+            _ => {}
         }
     }
+}
+
+pub fn matmul(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
+    let a_val = a.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+    let b_val = b.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+    Node::new(a_val.dot(&b_val).into_dyn(), Op::MatMul(a.clone(), b.clone()))
 }
 
 pub fn add(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
-    Rc::new(Node {
-        value: RefCell::new(*a.value.borrow() + *b.value.borrow()),
-        grad: RefCell::new(0.0),
-        op: Op::Add(a.clone(), b.clone()),
-    })
+    Node::new(&*a.value.borrow() + &*b.value.borrow(), Op::Add(a.clone(), b.clone()))
 }
 
 pub fn sub(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
-    Rc::new(Node {
-        value: RefCell::new(*a.value.borrow() - *b.value.borrow()),
-        grad: RefCell::new(0.0),
-        op: Op::Sub(a.clone(), b.clone()),
-    })
+    Node::new(&*a.value.borrow() - &*b.value.borrow(), Op::Sub(a.clone(), b.clone()))
 }
 
 pub fn mul(a: &Rc<Node>, b: &Rc<Node>) -> Rc<Node> {
-    Rc::new(Node {
-        value: RefCell::new(*a.value.borrow() * *b.value.borrow()),
-        grad: RefCell::new(0.0),
-        op: Op::Mul(a.clone(), b.clone()),
-    })
+    Node::new(&*a.value.borrow() * &*b.value.borrow(), Op::Mul(a.clone(), b.clone()))
 }
 
 pub fn relu(a: &Rc<Node>) -> Rc<Node> {
-    let v = *a.value.borrow();
-    Rc::new(Node {
-        value: RefCell::new(if v > 0.0 { v } else { 0.0 }),
-        grad: RefCell::new(0.0),
-        op: Op::ReLU(a.clone()),
-    })
+    let val = a.value.borrow().mapv(|v| if v > 0.0 { v } else { 0.0 });
+    Node::new(val, Op::ReLU(a.clone()))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
+pub fn square(a: &Rc<Node>) -> Rc<Node> {
+    let val = a.value.borrow().mapv(|v| v * v);
+    Node::new(val, Op::Square(a.clone()))
+}
 
-    #[test]
-    fn test_dual_basic_ops() {
-        // f(x) = x^2 + 3x + 5
-        // f'(x) = 2x + 3
-        // x = 2 => f(2) = 4 + 6 + 5 = 15, f'(2) = 4 + 3 = 7
-        let x = Dual::variable(2.0);
-        let result = (x * x) + (Dual::constant(3.0) * x) + Dual::constant(5.0);
-        
-        assert_eq!(result.value, 15.0);
-        assert_eq!(result.grad, 7.0);
-    }
-
-    proptest! {
-        #[test]
-        fn test_dual_vs_finite_difference(val in -100.0..100.0) {
-            let x = Dual::variable(val);
-            // f(x) = x^3 - 2x
-            // f'(x) = 3x^2 - 2
-            let f = |x: Dual| (x * x * x) - (Dual::constant(2.0) * x);
-            let result = f(x);
-            
-            let h = 1e-6;
-            let f_val = |x: f64| (x * x * x) - (2.0 * x);
-            let numerical_grad = (f_val(val + h) - f_val(val)) / h;
-            
-            let diff = (result.grad - numerical_grad).abs();
-            assert!(diff < 1e-3, "AD grad {} vs Numerical grad {}", result.grad, numerical_grad);
-        }
-    }
-
-    #[test]
-    fn test_reverse_mode_basic() {
-        // f(x, y) = x * y + x
-        // df/dx = y + 1
-        // df/dy = x
-        // x=2, y=3 => f=9, df/dx=4, df/dy=2
-        let x = Node::variable(2.0);
-        let y = Node::variable(3.0);
-        let xy = mul(&x, &y);
-        let f = add(&xy, &x);
-        
-        f.backward();
-        
-        assert_eq!(*f.value.borrow(), 8.0);
-        assert_eq!(*x.grad.borrow(), 4.0);
-        assert_eq!(*y.grad.borrow(), 2.0);
-    }
+pub fn mean(a: &Rc<Node>) -> Rc<Node> {
+    let val = a.value.borrow().mean().unwrap_or(0.0);
+    Node::new(ndarray::ArrayD::from_elem(ndarray::IxDyn(&[]), val), Op::Mean(a.clone()))
 }

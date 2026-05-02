@@ -1,9 +1,10 @@
 use crate::core::autodiff::{Tensor, add, sub};
 use ndarray::Array1;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum MathError {
     DimensionMismatch { expected: usize, found: usize },
+    Singularity(String),
 }
 
 pub type Result<T> = std::result::Result<T, MathError>;

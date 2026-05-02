@@ -112,3 +112,71 @@ proptest! {
         assert_eq!(*res1.0.value.borrow(), *res2.0.value.borrow());
     }
 }
+
+use rust_math_tool::{fft, ifft, kl_divergence, cosine_similarity, wasserstein_distance_1d, empirical_fisher_information_matrix};
+
+#[test]
+fn test_fft_ifft_inverse() {
+    let input = ndarray::array![
+        Complex64::new(1.0, 0.0),
+        Complex64::new(2.0, 0.0),
+        Complex64::new(3.0, 0.0),
+        Complex64::new(4.0, 0.0),
+    ];
+    
+    let f = fft(&input).unwrap();
+    let inv = ifft(&f).unwrap();
+    
+    // Check if IFFT(FFT(x)) == x
+    for (a, b) in input.iter().zip(inv.iter()) {
+        assert!((a.re - b.re).abs() < 1e-10);
+        assert!((a.im - b.im).abs() < 1e-10);
+    }
+}
+
+#[test]
+fn test_kl_divergence() {
+    let p = ndarray::array![0.3, 0.7];
+    let q = ndarray::array![0.3, 0.7];
+    let kl = kl_divergence(&p, &q).unwrap();
+    assert!((kl - 0.0).abs() < 1e-10); // D_KL(P||P) = 0
+}
+
+#[test]
+fn test_cosine_similarity() {
+    let a = ndarray::array![1.0, 0.0];
+    let b = ndarray::array![0.0, 1.0];
+    let sim = cosine_similarity(&a, &b).unwrap();
+    assert!((sim - 0.0).abs() < 1e-10); // Orthogonal vectors = 0
+    
+    let c = ndarray::array![1.0, 0.0];
+    let sim2 = cosine_similarity(&a, &c).unwrap();
+    assert!((sim2 - 1.0).abs() < 1e-10); // Parallel vectors = 1
+}
+
+#[test]
+fn test_empirical_fisher_information() {
+    // 2 samples, 3 parameters
+    // Gradients for sample 1: [1.0, 0.0, -1.0]
+    // Gradients for sample 2: [0.0, 1.0, 2.0]
+    let scores = Matrix::new(2, 3, vec![
+        1.0, 0.0, -1.0,
+        0.0, 1.0, 2.0
+    ]).unwrap();
+    
+    let fim = empirical_fisher_information_matrix(&scores).unwrap();
+    
+    // FIM should be 3x3 matrix
+    let (r, c) = fim.shape();
+    assert_eq!(r, 3);
+    assert_eq!(c, 3);
+    
+    // Check diagonal elements (1/N * sum(g_i^2))
+    // param 0: (1^2 + 0^2)/2 = 0.5
+    // param 1: (0^2 + 1^2)/2 = 0.5
+    // param 2: ((-1)^2 + 2^2)/2 = 2.5
+    let data = fim.tensor.0.value.borrow().clone().into_raw_vec_and_offset().0;
+    assert!((data[0] - 0.5).abs() < 1e-10);
+    assert!((data[4] - 0.5).abs() < 1e-10);
+    assert!((data[8] - 2.5).abs() < 1e-10);
+}

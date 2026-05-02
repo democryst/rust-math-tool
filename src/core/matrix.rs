@@ -52,4 +52,12 @@ impl Matrix {
             tensor: add(&self.tensor, &other.tensor),
         })
     }
+
+    pub fn transpose(&self) -> Result<Matrix> {
+        let val = self.tensor.0.value.borrow().clone().into_dimensionality::<ndarray::Ix2>().unwrap();
+        let t = val.t().to_owned().into_dyn();
+        Ok(Matrix {
+            tensor: Tensor::variable(t),
+        })
+    }
 }
